@@ -22,7 +22,8 @@ let bulletImages = {
   chicle: 'chicle.png',
   tenis_ball: 'tenis_ball.png',
   pea: 'pea.png',
-  bone: 'bone.png'
+  bone: 'bone.png',
+  realistic: 'realistic.png',
 }
 for (const [key, scr] of Object.entries(bulletImages)) {
   const img = new Image();
@@ -31,7 +32,9 @@ for (const [key, scr] of Object.entries(bulletImages)) {
 }
 
 let itemImages = {
-  hamburbur: 'hamburbur.png'
+  hamburbur: 'hamburbur.png',
+  monster: 'monster.png',
+  bolas: 'bolas.png'
 }
 for (const [key, scr] of Object.entries(itemImages)) {
   const img = new Image();
@@ -52,18 +55,46 @@ for (const [key, scr] of Object.entries(particleImages)) {
 }
 
 let bossImages = {
-  oscar: 'oscar.png',
-  oscar_muejeje: 'oscar_muejeje.png',
-  sans: 'sans.png',
-  sans_angry: 'sans_angry.png',
-  sans_dead: 'sans_dead.png',
-  mortadela: 'mortadela.png'
+  oscar: {
+    oscar: 'oscar.png',
+    oscar_muejeje: 'oscar_muejeje.png'
+  },
+  sans: {
+    sans: 'sans.png',
+    sans_angry: 'sans_angry.png',
+    sans_dead: 'sans_dead.png',
+    mortadela: 'mortadela.png'
+  },
+  franco: {
+    franco: 'franco.png',
+    ataquen: 'ataquen.png',
+    fuego: 'fuego.png',
+    talk0: 'talk0.png',
+    talk1: 'talk1.png',
+    talk2: 'talk2.png',
+    españoles: 'españoles.png',
+    el: 'el.png',
+    ha: 'ha.png',
+    muerto: 'muerto.png',
+    ['...']: '....png'
+  }
 }
 for (const [key, scr] of Object.entries(bossImages)) {
-  const img = new Image();
-  img.src = 'assets/enemies/bosses/' + bossImages[key];
-  loadedImages['bosses'][key] = img;
+  for (const [ckey, scr] of Object.entries(bossImages[key])) {
+    const img = new Image();
+    img.src = 'assets/enemies/bosses/' + key + '/' + bossImages[key][ckey];
+
+    loadedImages['bosses'][key] = loadedImages['bosses'][key] || {}
+    loadedImages['bosses'][key][ckey] = img;
+  }
 }
+
+/*
+for (const [key, scr] of Object.entries(bossImages)) {
+  const img = new Image();
+  img.src = 'assets/enemies/bosses/' + key + bossImages[key];
+  loadedImages['bosses'][key][bossImages[key]] = img;
+}*/
 
 const backgroundImage = new Image();
 backgroundImage.src = 'assets/images/background.png';
@@ -137,6 +168,7 @@ let ship = {
   dx: 3.5,
   dy: 3,
   img: shipImage,
+  effects: [],
   bullets: [],
   damage: 25,
   fireRate: 15,
@@ -349,6 +381,25 @@ function moveBullets() {
   ship.bullets = ship.bullets.filter(bullet => bullet.y >= 0);
 }
 
+function updateEffects() {
+  ship.effects.forEach((effect, effectIndex) => {
+
+    if (effect.first == null) {
+      effect.start(effect);
+      effect.first = true;
+    }
+    effect.step(effect);
+
+    effect.duration--;
+    if (effect.duration <= 0) {
+      effect.end(effect);
+      ship.effects.splice(effectIndex, 1);
+    }
+  });
+
+  ship.bullets = ship.bullets.filter(bullet => bullet.y >= 0);
+}
+
 let bossSpawned = false;
 let BOSS_TYPE = null;
 
@@ -357,10 +408,10 @@ const BOSS_PROPERTIES = {
   health: 2500 // Adjust boss health as needed
 };
 
-function drawBossHealthBar() {
-  const boss = enemies.find(enemy => enemy.type === ENEMY_TYPES.BOSS); // Find the boss enemy
-  if (boss) {
-    const healthPercentage = boss.health / BOSS_PROPERTIES.health;
+function drawBossHealthBar(enemy) {
+  //const boss = enemies.find(enemy => enemy.type === ENEMY_TYPES.BOSS); // Find the boss enemy
+  if (enemy) {
+    const healthPercentage = enemy.health / enemy.maxHealth;
     const barWidth = 200;
     const barHeight = 10;
     const x = canvas.width / 2 - barWidth / 2;
@@ -390,28 +441,37 @@ function Boss(x, y, n) {
     dealDamageToShip(25)
   }
 
-  this.img = loadedImages['bosses']['oscar']
+  this.moveStopPosition = canvas.height * 0.225; // Adjusted stop position
+  this.shootCooldown = 100; // Adjusted shoot cooldown
+
+  this.isDead = false;
+
+  this.img = loadedImages['bosses']['oscar']['oscar']
   if (n == 'oscar') {
     this.width = 100; // Adjust the width of the boss enemy
     this.height = 100; // Adjust the height of the boss enemy
     this.maxHealth = 2500;
     this.health = 2500; // Adjust the health of the boss enemy
 
-    this.img = loadedImages['bosses']['oscar']
+    this.img = loadedImages['bosses']['oscar']['oscar']
 
     this.currentAbility = null
     this.rotation = 0
 
+    this.onDeath = function(enemy) {
+      enemy.isDead = true;
+    }
+
     this.function = function(enemy) {
       if (enemy.shootCooldown <= 0) {
         let rdm = Math.random()
-        enemy.img = loadedImages['bosses']['oscar']
+        enemy.img = loadedImages['bosses']['oscar']['oscar']
 
         if (enemy.currentAbility == 'gyro') {
 
           if (enemy.rotation >= 360 | enemy.rotation <= -720) {
             enemy.rotation = 0;
-            enemy.shootCooldown = 175; // Reset shoot cooldown
+            enemy.shootCooldown = 90; // Reset shoot cooldown
             enemy.currentAbility = null
           } else {
             let bullet = {
@@ -425,13 +485,13 @@ function Boss(x, y, n) {
             };
             enemyBullets.push(bullet);
             enemy.rotation += enemy.rotation < 0 ? -10 : 10
-            enemy.shootCooldown = 5;
+            enemy.shootCooldown = 2.5;
           }
 
         } else if (rdm > .825) {
           enemy.rotation += Math.random()*20 - 10
           enemy.currentAbility = 'gyro'
-          enemy.shootCooldown = 10;
+          enemy.shootCooldown = 5;
           
         } else if (rdm > .05) {
           let shootx = enemy.x + enemy.width / 2
@@ -457,13 +517,13 @@ function Boss(x, y, n) {
           };
           enemyBullets.push(bullet);
 
-          enemy.shootCooldown = 25; // Reset shoot cooldown
+          enemy.shootCooldown = 12.5; // Reset shoot cooldown
         } else {
-          enemy.img = loadedImages['bosses']['oscar_muejeje']
+          enemy.img = loadedImages['bosses']['oscar']['oscar_muejeje']
 
           enemies.push(new Enemy(canvas.width+30, 0, ENEMY_TYPES.FOLLOWER));
           enemies.push(new Enemy(0-30, 0, ENEMY_TYPES.FOLLOWER));
-          enemy.shootCooldown = 300; // Reset shoot cooldown
+          enemy.shootCooldown = 150; // Reset shoot cooldown
         }
       } else {
         enemy.shootCooldown--; // Decrease shoot cooldown timer
@@ -476,7 +536,7 @@ function Boss(x, y, n) {
     this.maxHealth = 2250;
     this.health = 2250; // Adjust the health of the boss enemy
 
-    this.img = loadedImages['bosses']['sans']
+    this.img = loadedImages['bosses']['sans']['sans']
 
     this.warnedTick = 0;
     this.targetx = 0;
@@ -497,10 +557,11 @@ function Boss(x, y, n) {
         width: 80,
         height: 80,
         lifespan: 300,
-        img: loadedImages['bosses']['sans_dead']
+        img: loadedImages['bosses']['sans']['sans_dead']
       };
   
       particles.push(particle);
+      enemy.isDead = true;
     }
 
     this.function = function(enemy) {
@@ -508,7 +569,7 @@ function Boss(x, y, n) {
 
       if (enemy.directionCooldown <= 0) {
         enemy.dx = (Math.random()>.5 ? 1 : -1) * ((Math.random())*(isAngry?4:2)+(isAngry?.75:0))
-        enemy.directionCooldown = 100;
+        enemy.directionCooldown = 50;
       } else {
         enemy.directionCooldown--
       }
@@ -518,7 +579,7 @@ function Boss(x, y, n) {
         enemy.dx = -(Math.random())*(isAngry?4:2)-(isAngry?.75:0)
       }
 
-      enemy.img = isAngry ? loadedImages['bosses']['sans_angry'] : loadedImages['bosses']['sans']
+      enemy.img = isAngry ? loadedImages['bosses']['sans']['sans_angry'] : loadedImages['bosses']['sans']['sans']
       if (enemy.shootCooldown <= 0) {
         let rdm = Math.random()
 
@@ -535,7 +596,7 @@ function Boss(x, y, n) {
           };
           enemyBullets.push(bullet);
 
-          enemy.shootCooldown = isAngry ? 100 : 225; // Reset shoot cooldown
+          enemy.shootCooldown = isAngry ? 50 : 120; // Reset shoot cooldown
         } else if (Math.random() > .4 && enemy.warnedTick == 0) {
 
           let fromRight = ship.x - canvas.width/2 < 0
@@ -553,10 +614,10 @@ function Boss(x, y, n) {
 
           enemyBullets.push(bullet);
 
-          enemy.shootCooldown = isAngry ? 90 : 200; // Reset shoot cooldown
+          enemy.shootCooldown = isAngry ? 45 : 105; // Reset shoot cooldown
         } else {
 
-          if (enemy.warnedTick >= 150) {
+          if (enemy.warnedTick >= 75) {
             let bullet = {
               x: enemy.targetx-45,
               y: enemy.targety-45,
@@ -565,13 +626,13 @@ function Boss(x, y, n) {
               dy: 0, // Adjusted bullet speed
               dx: 0,
               destroyOnCollide: false,
-              lifeTime: isAngry ? 75 : 150,
-              img: loadedImages['bosses']['mortadela']
+              lifeTime: isAngry ? 40 : 75,
+              img: loadedImages['bosses']['sans']['mortadela']
             };
             enemyBullets.push(bullet);
 
             enemy.warnedTick = 0
-            enemy.shootCooldown = isAngry ? 30 : 200; // Reset shoot cooldown
+            enemy.shootCooldown = isAngry ? 15 : 100; // Reset shoot cooldown
 
           } else if (enemy.warnedTick == 0) {
             enemy.targetx = ship.x+ship.width/2
@@ -587,10 +648,138 @@ function Boss(x, y, n) {
         enemy.shootCooldown--; // Decrease shoot cooldown timer
       }
     }
-  }
+  } else if (n == 'franco') {
+    this.width = 90; // Adjust the width of the boss enemy
+    this.height = 125; // Adjust the height of the boss enemy
+    this.maxHealth = 2000;
+    this.health = 2000; // Adjust the health of the boss enemy
 
-  this.moveStopPosition = canvas.height * 0.225; // Adjusted stop position
-  this.shootCooldown = 100; // Adjusted shoot cooldown
+    this.img = loadedImages['bosses']['franco']['franco']
+
+    this.directionCooldown = 100;
+
+    this.isDying = false;
+    this.deathTick = 400;
+
+    this.talking = 0;
+
+    this.moveStopPosition = canvas.height * 0.165; // Adjusted stop position
+
+    this.function = function (enemy) {
+      if (enemy.isDying) {
+        if (enemy.deathTick <= 0) {
+          const particle = {
+            x: enemy.x,
+            y: enemy.y,
+            dx: 0,
+            dy: 1,
+            dr: 0,
+            ay: 0,
+            alpha: 1,
+            da: -1/300,
+            rotation: 0,
+            color: `rgba(150, ${Math.random() * 100}, 0, 1)`,
+            width: enemy.width,
+            height: enemy.height,
+            lifespan: 300,
+            img: loadedImages['bosses']['franco']['...']
+          };
+      
+          particles.push(particle);
+
+          enemy.isDead = true;
+
+        } else {
+          enemy.deathTick--;
+
+          if (enemy.deathTick < 25) {
+            enemy.img = loadedImages['bosses']['franco']['...'];
+          } else if (enemy.deathTick < 125) {
+            enemy.img = loadedImages['bosses']['franco']['muerto'];
+            ctx.fillText('muerto', canvas.width/2, canvas.height/2);
+          } else if (enemy.deathTick < 175) {
+            enemy.img = loadedImages['bosses']['franco']['ha'];
+            ctx.fillText('ha', canvas.width/2, canvas.height/2);
+          } else if (enemy.deathTick < 275) {
+            enemy.img = loadedImages['bosses']['franco']['el'];
+            ctx.fillText('franco', canvas.width/2, canvas.height/2);
+          } else if (enemy.deathTick < 375) {
+            enemy.img = loadedImages['bosses']['franco']['españoles'];
+            ctx.fillText('españoles', canvas.width/2, canvas.height/2);
+          } else {
+            enemy.img = loadedImages['bosses']['franco']['...'];
+          }
+        }
+      } else {
+        if (enemy.talking > 0) {
+          let mod = enemy.talking%70
+          if (mod > 55) {
+            enemy.img = loadedImages['bosses']['franco']['talk1'];
+          } else if (mod > 20) {
+            enemy.img = loadedImages['bosses']['franco']['talk2'];
+          } else if (mod > 10) {
+            enemy.img = loadedImages['bosses']['franco']['talk1'];
+          } else {
+            enemy.img = loadedImages['bosses']['franco']['talk0'];
+          }
+
+          enemy.talking--
+        }
+
+        if (enemy.shootCooldown <= 0) {
+          let rdm = Math.random()
+          enemy.img = loadedImages['bosses']['franco']['franco']
+  
+          if (rdm > 0.35) {
+
+            enemy.img = loadedImages['bosses']['franco']['ataquen']
+  
+            for (let i = 0; i < 8; i++) {
+              enemies.push(new Enemy(20 + Math.random()*(canvas.width-20), -Math.random()*250-20, ENEMY_TYPES.TROPAFRANCA));
+            }
+            enemy.shootCooldown = 200; // Reset shoot cooldown
+          } else if (rdm > 0.1) {
+
+            enemy.img = loadedImages['bosses']['franco']['fuego']
+
+            for (let i = 0; i < 3; i++) {
+              enemies.push(new Enemy(50 + Math.random()*(canvas.width-50), -Math.random()*150-20, ENEMY_TYPES.FRANCOTIRADORFRANCO));
+            }
+
+            for (let i = 0; i < 8; i++) {
+              let bullet = {
+                x: 10 + Math.random()*(canvas.width-10),
+                y: -Math.random()*600-10,
+                width: 5,
+                height: 10,
+                dy: 5, // Adjusted bullet speed
+                dx: 0,
+                img: loadedImages['bullets']['realistic']
+              };
+              enemyBullets.push(bullet);
+            }
+
+            enemy.shootCooldown = 210; // Reset shoot cooldown
+          } else {
+            for (let i = 0; i < 6; i++) {
+              enemies.push(new Enemy(10+i/6*(canvas.width), -Math.random()*200-20, ENEMY_TYPES.BARRERAFRANCA));
+            }
+
+            enemy.talking = 205;
+            enemy.shootCooldown = 210; // Reset shoot cooldown
+          }
+        } else {
+          enemy.shootCooldown--; // Decrease shoot cooldown timer
+        }
+      }
+    }
+
+    this.onDeath = function(enemy) {
+      this.width = 150; // Adjust the width of the boss enemy
+      this.height = 150; // Adjust the height of the boss enemy
+      this.isDying = true;
+    }
+  }
 }
 
 // Create a boss enemy
@@ -599,12 +788,15 @@ function createBoss() {
   const y = -100; // Adjust the initial y position of the boss enemy
 
   let options = []
-  if (nextBoss == null) {
-    let t = ['oscar', 'sans']
+  while (nextBoss == null) {
+    let t = ['oscar', 'sans', 'franco']
     t = t.filter(b => killedBosses.findIndex((element) => element == b) == -1);
 
     var index = Math.floor(Math.random() * t.length);
     nextBoss = t[index]
+    if (!nextBoss) {
+      killedBosses = [];
+    }
   }
 
   enemies.push(new Boss(x, y, nextBoss));
@@ -621,6 +813,11 @@ const ENEMY_TYPES = {
   INVISIBLE: 'invisible',
   CREEPER: 'creeper',
   NEUTRALIST: 'neutralist',
+
+  TROPAFRANCA: 'tropafranca',
+  FRANCOTIRADORFRANCO: 'francotiradorfranco',
+  BARRERAFRANCA: 'barrerafranca',
+
   BOSS: 'boss'
 };
 
@@ -634,6 +831,9 @@ const enemyImages = {
   [ENEMY_TYPES.INVISIBLE]: 'assets/enemies/invisible.png',
   [ENEMY_TYPES.NEUTRALIST]: 'assets/enemies/neutralist.png',
   ['neutralist_mad']: 'assets/enemies/neutralist_mad.png',
+  [ENEMY_TYPES.TROPAFRANCA]: 'assets/enemies/tropafranca.png',
+  [ENEMY_TYPES.FRANCOTIRADORFRANCO]: 'assets/enemies/francotiradorfranco.png',
+  [ENEMY_TYPES.BARRERAFRANCA]: 'assets/enemies/barrerafranca.png',
   [ENEMY_TYPES.CREEPER]: 'assets/enemies/creeper.png',
 }
 
@@ -856,6 +1056,70 @@ const ENEMY_PROPERTIES = {
     chance: 10,
     spawnScore: 7000,
   },
+
+  [ENEMY_TYPES.TROPAFRANCA]: {
+    score: 15,
+    health: 125,
+
+    dx: 0,
+    dy: 2.5,
+    width: 35,
+    height: 40,
+
+    img: loadedEnemyImages[ENEMY_TYPES.TROPAFRANCA],
+
+    chance: 0,
+  },
+  [ENEMY_TYPES.FRANCOTIRADORFRANCO]: {
+    score: 150,
+    health: 75,
+
+    dx: 0,
+    dy: 2,
+    width: 30,
+    height: 30,
+
+    moveStopPosition: canvas.height * 0.425, // Adjusted stop position
+    shootCooldown: 150, // Adjusted shoot cooldown
+
+    function: function (enemy) {
+      if (enemy.y >= enemy.moveStopPosition) {
+        if (enemy.shootCooldown <= 0) {
+          let bullet = createEnemyBullet(enemy);
+          bullet['img'] = loadedImages['bullets']['realistic'];
+          bullet['width'] = 5;
+          bullet['height'] = 10;
+          bullet.dy = 4,
+
+          enemy.shootCooldown = 125; // Reset shoot cooldown
+          enemy.height += 12.5
+        } else {
+          enemy.height -= 0.1
+          enemy.shootCooldown--; // Decrease shoot cooldown timer
+        }
+      }
+    },
+
+    img: loadedEnemyImages[ENEMY_TYPES.FRANCOTIRADORFRANCO],
+
+    chance: 0,
+  },
+  [ENEMY_TYPES.BARRERAFRANCA]: {
+    score: 10,
+    health: 150,
+
+    moveStopPosition: canvas.height * 0.5, // Adjusted stop position
+
+    dx: 0,
+    dy: 3.5,
+    width: 55,
+    height: 40,
+
+    img: loadedEnemyImages[ENEMY_TYPES.BARRERAFRANCA],
+
+    chance: 0,
+  },
+
   [ENEMY_TYPES.BOSS]: {
     score: 2500,
     health: 100
@@ -929,39 +1193,46 @@ function createEnemy() {
 let enemyBullets = []; // Define enemyBullets array
 
 function moveEnemies() {
-  enemies.forEach(enemy => {
-    if (enemy.moveStopPosition) {
-      if (enemy.y < enemy.moveStopPosition) {
+
+  enemies.forEach((enemy, enemyIndex) => {
+    if (enemy.isDead == true) {
+      if (enemy.type == ENEMY_TYPES.BOSS) {
+        nextboss = score + bossdelay
+        killedBosses.push(BOSS_TYPE)
+        bossSpawned = false
+        items.push(new Item(enemy.x+enemy.width/2, enemy.y+enemy.height/2, randomItemType()));
+      }
+      enemies.splice(enemyIndex, 1);
+    } else {
+      if (enemy.moveStopPosition) {
+        if (enemy.y < enemy.moveStopPosition) {
+          enemy.y += enemy.dy; // For other enemy types, just move downwards
+        }
+        enemy.x += enemy.dx;
+      }
+      else if (enemy.follow) {
+        let enemyx = enemy.x
+        let enemyy = enemy.y 
+  
+        let shipx = ship.x
+        let shipy = ship.y
+  
+        let x=shipx-enemyx, y=shipy-enemyy;
+        let length = Math.sqrt(x**2+y**2);
+  
+        x = x/length;
+        y = y/length;
+  
+        enemy.x += x*enemy.dx;
+        enemy.y += y*enemy.dy; // For other enemy types, just move downwards
+      } else {
+        //enemy.x += enemy.dx;
         enemy.y += enemy.dy; // For other enemy types, just move downwards
       }
-      enemy.x += enemy.dx;
-    }
-    else if (enemy.follow) {
-      let enemyx = enemy.x
-      let enemyy = enemy.y 
-
-      let shipx = ship.x
-      let shipy = ship.y
-
-      let x=shipx-enemyx, y=shipy-enemyy;
-      let length = Math.sqrt(x**2+y**2);
-
-      x = x/length;
-      y = y/length;
-
-      enemy.x += x*enemy.dx;
-      enemy.y += y*enemy.dy; // For other enemy types, just move downwards
-    } else {
-      //enemy.x += enemy.dx;
-      enemy.y += enemy.dy; // For other enemy types, just move downwards
-    }
-
-    if (enemy.function != null) {
-      enemy.function(enemy)
-    }
-    
-    if (enemy.type === ENEMY_TYPES.BOSS && enemy.function) {
-      enemy.function(enemy);
+      
+      if (enemy.function) {
+        enemy.function(enemy);
+      }
     }
   });
 
@@ -991,7 +1262,7 @@ function drawEnemies() {
     ctx.globalAlpha = 1; // Reset the transparency to default (fully opaque)
     // Draw boss health bar if boss is spawned
     if (bossSpawned && enemy.type === ENEMY_TYPES.BOSS) {
-      drawBossHealthBar();
+      drawBossHealthBar(enemy);
     }
   });
 }
@@ -1057,6 +1328,7 @@ function dealDamageToShip(damage) {
 const ITEM_TYPES = {
   HAMBURBUR: 'hamburbur',
   MONSTER: 'monster',
+  BOLAS: 'bolas',
 };
 
 const ITEM_PROPERTIES = {
@@ -1074,13 +1346,54 @@ const ITEM_PROPERTIES = {
   [ITEM_TYPES.MONSTER]: {
 
     onCollide: function(item) {
-      healShip(25);
+
+      let effect = {
+        duration: 500,
+        start: function(effect) {
+          ship.fireRate -= 4
+        },
+        step: function(effect) {
+
+        },
+        end: function(effect) {
+          ship.fireRate += 4
+        },
+      }
+
+      ship.effects.push(effect)
       createEatEffect(item.x + item.width / 2, item.y + item.height / 2); // Generate hit effect at bullet's center
     },
     chance: 150,
     spawnScore: 100,
 
     img: loadedImages['items'][ITEM_TYPES.MONSTER]
+  },
+  [ITEM_TYPES.BOLAS]: {
+
+    onCollide: function(item) {
+
+      let effect = {
+        duration: 500,
+        start: function(effect) {
+          ship.bulletCount += 2
+          ship.damage *= 2
+        },
+        step: function(effect) {
+
+        },
+        end: function(effect) {
+          ship.fireRate -= 2
+          ship.damage /= 2
+        },
+      }
+
+      ship.effects.push(effect)
+      createEatEffect(item.x + item.width / 2, item.y + item.height / 2); // Generate hit effect at bullet's center
+    },
+    chance: 150,
+    spawnScore: 100,
+
+    img: loadedImages['items'][ITEM_TYPES.BOLAS]
   }
 }
 
@@ -1153,7 +1466,7 @@ function randomItemType() {
 }
 
 function createItem() {
-  let randomType = randomEnemyType()
+  let randomType = randomItemType()
 
   const x = Math.random() * (canvas.width - 30);
   const y = -30;
@@ -1172,7 +1485,7 @@ function checkCollisions() {
       item.y + item.height > ship.y
     ) {
       if (item.onCollide != null) {
-        item.onCollide(item)
+        item.onCollide(item);
       }
       items.splice(itemIndex, 1); // Remove enemy bullet
     }
@@ -1189,18 +1502,17 @@ function checkCollisions() {
         let damage = ship.damage/ship.bulletCount
         enemy.health -= damage; // Reduce enemy health when hit by a ship bullet
         ship.bullets.splice(ship.bullets.indexOf(bullet), 1); // Remove ship bullet
-        if (enemy.health <= 0) {
-          if (enemy.onDeath != null) { enemy.onDeath(enemy) }
-          if (Math.random()*100 <= 1 || enemy.type === ENEMY_TYPES.BOSS) {
-            items.push(new Item(enemy.x, enemy.y, randomEnemyType()));
+        if (enemy.health <= 0 && !enemy.isDying) {
+          if (enemy.onDeath != null) {
+             enemy.onDeath(enemy);
           }
-          enemies.splice(enemyIndex, 1); // Remove enemy if health reaches zero
+          if (Math.random()*80 <= 1 && enemy.type != ENEMY_TYPES.BOSS) {
+            items.push(new Item(enemy.x+enemy.width/2, enemy.y+enemy.height/2, randomItemType()));
+          }
+          if (enemy.type != ENEMY_TYPES.BOSS) { 
+            enemies.splice(enemyIndex, 1); // Remove enemy if health reaches zero
+          }
           score += enemy.score; // Increase score based on enemy type
-          if (enemy.type === ENEMY_TYPES.BOSS) {
-            nextboss = score + bossdelay
-            killedBosses.push(BOSS_TYPE)
-            bossSpawned = false
-          }
         } else {
           score += Math.floor(damage/10); // Increase score for hitting an enemy
         }
@@ -1455,6 +1767,8 @@ function gameLoop() {
     }
     moveBackgroundParticles();
 	  drawBackgroundParticles();
+
+    updateEffects();
 	
     drawShip();
     moveShip();
@@ -1462,6 +1776,7 @@ function gameLoop() {
       createBullet();
       ship.fireCooldown = ship.fireRate;
     }
+    ship.fireCooldown--;
     drawBullets();
     moveBullets();
     drawEnemies();
@@ -1473,7 +1788,6 @@ function gameLoop() {
     checkCollisions();
     drawParticles(); // Draw particles
     updateParticles(); // Update particles
-    ship.fireCooldown--;
 	
 	  drawScore();
     drawHealthBar(); // Draw the health bar
@@ -1504,6 +1818,7 @@ function resetGame() {
   // Destroy all entities in the game
   enemies = [];
   enemyBullets = [];
+  items = [];
   
   // Reset particles array
   particles = [];
